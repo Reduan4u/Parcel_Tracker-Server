@@ -25,18 +25,36 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        //await client.connect();
+        await client.connect();
 
 
         const deliveryManCollection = client.db("parcelTracker").collection("deliveryMan");
+        const parcelCollection = client.db("parcelTracker").collection("parcels");
 
+        // GET request to retrieve delivery men
         app.get('/deliveryMan', async (req, res) => {
             const result = await deliveryManCollection.find().toArray();
             res.send(result);
 
         })
 
+        // POST request to book a parcel
+        app.post('/parcel', async (req, res) => {
+            const newParcel = req.body;
+            try {
+                const result = await parcelCollection.insertOne(newParcel);
+                res.json({ insertedId: result.insertedId });
+            } catch (error) {
+                console.error('Error booking parcel:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+        // GET request to retrieve delivery men
+        app.get('/parcel', async (req, res) => {
+            const result = await parcelCollection.find().toArray();
+            res.send(result);
 
+        })
 
 
 
