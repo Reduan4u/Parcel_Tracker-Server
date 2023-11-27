@@ -158,6 +158,8 @@ async function run() {
             res.send(result);
         })
 
+
+
         // GET request to check if a user with the provided email already exists
         app.get('/user/:email', async (req, res) => {
             try {
@@ -178,6 +180,10 @@ async function run() {
 
         })
 
+
+        /* __________________________________________________________________________________________ */
+
+
         // POST request to book a parcel
         app.post('/parcel', async (req, res) => {
             const newParcel = req.body;
@@ -193,7 +199,6 @@ async function run() {
         app.get('/parcel/:parcelId', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
-
             const result = await parcelCollection.findOne(query);
             res.send(result);
         })
@@ -212,14 +217,6 @@ async function run() {
                 const fromDate = req.query.fromDate;
                 const toDate = req.query.toDate;
 
-                if (fromDate && toDate) {
-                    // If both fromDate and toDate are provided, filter by deliveryDate
-                    query.deliveryDate = {
-                        $gte: new Date(fromDate),
-                        $lte: new Date(toDate),
-                    };
-                }
-
                 const result = await parcelCollection.find(query).toArray();
                 res.send(result);
             } catch (error) {
@@ -228,13 +225,7 @@ async function run() {
             }
         });
 
-
-        // Import necessary modules at the beginning of your file
-        const { ObjectId } = require('mongodb');
-
-        // ...
-
-        // GET request to retrieve bookings by date
+        // GET request to retrieve bookings by date for Statistics
         app.get('/bookingsByDate', async (req, res) => {
             try {
                 const result = await parcelCollection.aggregate([
@@ -288,28 +279,6 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
-
-        // GET request to search parcels by date range
-        app.get('/parcel/searchByDateRange', async (req, res) => {
-            try {
-                const fromDate = req.query.fromDate;
-                const toDate = req.query.toDate;
-
-                const result = await parcelCollection.find({
-                    deliveryDate: {
-                        $gte: new Date(fromDate),
-                        $lte: new Date(toDate),
-                    },
-                }).toArray();
-
-                res.json(result);
-            } catch (error) {
-                console.error('Error searching by date range:', error);
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        });
-
-
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
