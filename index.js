@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+const { ObjectId } = require('mongodb');
+const { Schema, model } = require('mongoose');
 const port = process.env.PORT || 5000;
 
 //middleware
@@ -22,6 +24,8 @@ const client = new MongoClient(uri, {
     }
 });
 
+
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -30,6 +34,65 @@ async function run() {
 
         const deliveryManCollection = client.db("parcelTracker").collection("deliveryMan");
         const parcelCollection = client.db("parcelTracker").collection("parcels");
+        const userCollection = client.db("parcelTracker").collection("users");
+
+
+        // users related api
+        app.get('/users', async (req, res) => {
+            const result = await userCollection.find().toArray();
+            res.send(result);
+        });
+
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            // insert email if user doesnt exists: 
+            // you can do this many ways (1. email unique, 2. upsert 3. simple checking)
+            const query = { email: user.email }
+            const existingUser = await userCollection.findOne(query);
+            if (existingUser) {
+                return res.send({ message: 'user already exists', insertedId: null })
+            }
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        });
+
+        //Make Delivery Men
+        app.patch('/users/deliveryMen/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    role: 'DeliveryMen'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+        // Make Admin
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+        // GET request to check if a user with the provided email already exists
+        app.get('/user/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const existingUser = await userCollection.findOne({ email });
+
+                res.json({ exists: !!existingUser });
+            } catch (error) {
+                console.error('Error checking if user exists:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
         // GET request to retrieve delivery men
         app.get('/deliveryMan', async (req, res) => {
@@ -49,13 +112,125 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
-        // GET request to retrieve delivery men
-        app.get('/parcel', async (req, res) => {
-            const result = await parcelCollection.find().toArray();
-            res.send(result);
+        // Single Food read
+        app.get('/parcel/:parcelId', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
 
+            const result = await parcelCollection.findOne(query);
+            res.send(result);
         })
 
+        // GET request to retrieve parcel
+        app.get('/parcel', async (req, res) => {
+            try {
+                const email = req.query.email;
+                let query = {};
+
+                if (email) {
+                    // If email is provided, filter by senderEmail
+                    query.senderEmail = email;
+                }
+
+                const fromDate = req.query.fromDate;
+                const toDate = req.query.toDate;
+
+                if (fromDate && toDate) {
+                    // If both fromDate and toDate are provided, filter by deliveryDate
+                    query.deliveryDate = {
+                        $gte: new Date(fromDate),
+                        $lte: new Date(toDate),
+                    };
+                }
+
+                const result = await parcelCollection.find(query).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching parcels:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+
+        // Import necessary modules at the beginning of your file
+        const { ObjectId } = require('mongodb');
+
+        // ...
+
+        // GET request to retrieve bookings by date
+        app.get('/bookingsByDate', async (req, res) => {
+            try {
+                const result = await parcelCollection.aggregate([
+                    {
+                        $group: {
+                            _id: {
+                                year: { $year: { $toDate: '$deliveryDate' } },
+                                month: { $month: { $toDate: '$deliveryDate' } },
+                                day: { $dayOfMonth: { $toDate: '$deliveryDate' } },
+                            },
+                            bookings: { $sum: 1 },
+                        },
+                    },
+                    {
+                        $sort: {
+                            '_id.year': 1,
+                            '_id.month': 1,
+                            '_id.day': 1,
+                        },
+                    },
+                ]).toArray();
+
+                res.json(result);
+            } catch (error) {
+                console.error('Error fetching bookings by date:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        // PUT request to manage a parcel
+        app.put('/manageParcel/:parcelId', async (req, res) => {
+            const parcelId = req.params.parcelId;
+            const { deliveryManId, approximateDeliveryDate } = req.body;
+
+            try {
+                // Update the parcel in the database
+                const result = await parcelCollection.updateOne(
+                    { _id: ObjectId(parcelId) },
+                    {
+                        $set: {
+                            bookingStatus: 'On The Way',
+                            deliveryManId: ObjectId(deliveryManId),
+                            approximateDeliveryDate: new Date(approximateDeliveryDate),
+                        },
+                    }
+                );
+
+                res.json({ modifiedCount: result.modifiedCount });
+            } catch (error) {
+                console.error('Error managing parcel:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        // GET request to search parcels by date range
+        app.get('/parcel/searchByDateRange', async (req, res) => {
+            try {
+                const fromDate = req.query.fromDate;
+                const toDate = req.query.toDate;
+
+                const result = await parcelCollection.find({
+                    deliveryDate: {
+                        $gte: new Date(fromDate),
+                        $lte: new Date(toDate),
+                    },
+                }).toArray();
+
+                res.json(result);
+            } catch (error) {
+                console.error('Error searching by date range:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
 
 
