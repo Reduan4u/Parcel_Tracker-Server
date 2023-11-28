@@ -209,9 +209,20 @@ async function run() {
 
                 const fromDate = req.query.fromDate;
                 const toDate = req.query.toDate;
+                // console.log(fromDate);
+                //console.log("hi", query.deliveryDate);
+                // Add date range filtering if fromDate and toDate are provided
+                if (fromDate && toDate) {
+                    query.deliveryDate = {
+
+                        $gte: new Date(fromDate),
+                        $lte: new Date(toDate),
+                    };
+                }
 
                 const result = await parcelCollection.find(query).toArray();
                 res.send(result);
+                //console.log(result);
             } catch (error) {
                 console.error('Error fetching parcels:', error);
                 res.status(500).json({ error: 'Internal Server Error' });
@@ -329,37 +340,7 @@ async function run() {
             }
         });
 
-        /* // PUT request to manage a parcel
-        app.put('/manageParcel/:parcelId', async (req, res) => {
-            const parcelId = req.params.parcelId;
-            const { deliveryManId, approximateDeliveryDate, deliveryMenEmail } = req.body;
 
-            try {
-                // Fetch the delivery man's email
-                const deliveryMan = await userCollection.findOne({ _id: new ObjectId(deliveryManId) });
-                const deliveryManEmail = deliveryMan ? deliveryMan.email : '';
-
-                // Format the date
-                const formattedDate = new Date(approximateDeliveryDate).toISOString().split('T')[0];
-
-                // Update the parcel in the database
-                const result = await parcelCollection.updateOne(
-                    { _id: new ObjectId(parcelId) },
-                    {
-                        $set: {
-                            bookingStatus: 'On The Way',
-                            deliveryMenId: deliveryManId,
-                            approximateDeliveryDate: formattedDate,
-                        },
-                    }
-                );
-
-                res.json({ modifiedCount: result.modifiedCount });
-            } catch (error) {
-                console.error('Error managing parcel:', error);
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }); */
 
         // PUT request to manage a parcel
         app.put('/manageParcel/:parcelId', async (req, res) => {
