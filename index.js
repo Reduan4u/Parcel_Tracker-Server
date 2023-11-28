@@ -218,14 +218,38 @@ async function run() {
             }
         });
 
+        /* delivery count  */
+        app.patch('/deliverCount/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const user = await userCollection.findOne(filter);
+            const updatedDoc = {
+                $set: {
+                    count: user.count + 1
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
 
 
-        app.patch('/parcel/:id', async (req, res) => {
+        app.patch('/parcel/cancel/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
                 $set: {
-                    bookingStatus: 'Cancel'
+                    bookingStatus: 'cancelled'
+                }
+            }
+            const result = await parcelCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+        app.patch('/parcel/deliver/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    bookingStatus: 'delivered'
                 }
             }
             const result = await parcelCollection.updateOne(filter, updatedDoc);
