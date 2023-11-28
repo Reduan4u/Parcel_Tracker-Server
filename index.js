@@ -195,13 +195,6 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
-        // Single Food read
-        app.get('/parcel/:parcelId', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) }
-            const result = await parcelCollection.findOne(query);
-            res.send(result);
-        })
 
         // GET request to retrieve parcel
         app.get('/parcel', async (req, res) => {
@@ -224,6 +217,63 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
+
+
+        app.patch('/parcel/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    bookingStatus: 'Cancel'
+                }
+            }
+            const result = await parcelCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+
+
+        //Make parcel cancel 
+        // Make parcel cancel 
+        app.patch('/parcel/cancel/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const filter = { _id: new ObjectId(id) };
+                const updatedDoc = {
+                    $set: {
+                        bookingStatus: 'Cancelled'
+                    }
+                }
+                const result = await parcelCollection.updateOne(filter, updatedDoc);
+
+                if (result.modifiedCount > 0) {
+                    res.status(200).json({ message: 'Parcel cancelled successfully' });
+                } else {
+                    res.status(404).json({ message: 'Parcel not found' });
+                }
+            } catch (error) {
+                console.error('Error cancelling parcel:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+        // Update parcel (for other updates, if needed)
+        app.patch('/parcel/update/:id', async (req, res) => {
+            try {
+                // Your logic for updating a parcel (if needed)
+            } catch (error) {
+                console.error('Error updating parcel:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
+
+        // Single Food read
+        app.get('/parcel/:parcelId', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await parcelCollection.findOne(query);
+            res.send(result);
+        })
 
         // GET request to retrieve bookings by date for Statistics
         app.get('/bookingsByDate', async (req, res) => {
@@ -255,20 +305,59 @@ async function run() {
             }
         });
 
-        // PUT request to manage a parcel
+        /* // PUT request to manage a parcel
         app.put('/manageParcel/:parcelId', async (req, res) => {
             const parcelId = req.params.parcelId;
-            const { deliveryManId, approximateDeliveryDate } = req.body;
+            const { deliveryManId, approximateDeliveryDate, deliveryMenEmail } = req.body;
 
             try {
+                // Fetch the delivery man's email
+                const deliveryMan = await userCollection.findOne({ _id: new ObjectId(deliveryManId) });
+                const deliveryManEmail = deliveryMan ? deliveryMan.email : '';
+
+                // Format the date
+                const formattedDate = new Date(approximateDeliveryDate).toISOString().split('T')[0];
+
                 // Update the parcel in the database
                 const result = await parcelCollection.updateOne(
-                    { _id: ObjectId(parcelId) },
+                    { _id: new ObjectId(parcelId) },
                     {
                         $set: {
                             bookingStatus: 'On The Way',
-                            deliveryManId: ObjectId(deliveryManId),
-                            approximateDeliveryDate: new Date(approximateDeliveryDate),
+                            deliveryMenId: deliveryManId,
+                            approximateDeliveryDate: formattedDate,
+                        },
+                    }
+                );
+
+                res.json({ modifiedCount: result.modifiedCount });
+            } catch (error) {
+                console.error('Error managing parcel:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        }); */
+
+        // PUT request to manage a parcel
+        app.put('/manageParcel/:parcelId', async (req, res) => {
+            const parcelId = req.params.parcelId;
+            const { deliveryManId, approximateDeliveryDate, deliveryMenEmail } = req.body;
+
+            try {
+                // Fetch the delivery man's email
+                const deliveryMan = await userCollection.findOne({ _id: new ObjectId(deliveryManId) });
+                const deliveryManEmail = deliveryMan ? deliveryMan.email : '';
+                // Format the date
+                const formattedDate = new Date(approximateDeliveryDate).toISOString().split('T')[0];
+
+                // Update the parcel in the database
+                const result = await parcelCollection.updateOne(
+                    { _id: new ObjectId(parcelId) },
+                    {
+                        $set: {
+                            bookingStatus: 'On The Way',
+                            deliveryMenId: deliveryManId,
+                            approximateDeliveryDate: formattedDate,
+                            deliveryMenEmail: deliveryManEmail
                         },
                     }
                 );
@@ -279,6 +368,7 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
