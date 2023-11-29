@@ -83,7 +83,7 @@ async function run() {
         }
 
         // users related api
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
         });
@@ -158,7 +158,20 @@ async function run() {
             res.send(result);
         })
 
+        // User profile Update
+        app.patch('/users/profileUpdate/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedUserData = req.body;
 
+            try {
+                const result = await userCollection.updateOne(filter, { $set: updatedUserData });
+                res.send(result);
+            } catch (error) {
+                console.error('Error updating user profile:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        })
 
         // GET request to check if a user with the provided email already exists
         app.get('/user/:email', async (req, res) => {
