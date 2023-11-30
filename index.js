@@ -151,7 +151,7 @@ async function run() {
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
                 $set: {
-                    role: 'admin'
+                    role: 'Admin'
                 }
             }
             const result = await userCollection.updateOne(filter, updatedDoc);
@@ -249,13 +249,65 @@ async function run() {
             const user = await userCollection.findOne(filter);
             const updatedDoc = {
                 $set: {
-                    count: user.count + 1
+                    deliveryCount: user.deliveryCount + 1
                 }
             }
             const result = await userCollection.updateOne(filter, updatedDoc);
             res.send(result);
         })
 
+        /* delivery count  */
+        app.patch('/user/bookingCount/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const user = await userCollection.findOne(filter);
+            const updatedDoc = {
+                $set: {
+                    bookingCount: user.bookingCount + 1
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+        /* review add  */
+        app.patch('/user/review/:id', async (req, res) => {
+            const id = req.params.id;
+            //console.log(id);
+            const review = req.body;
+            const name = review.name;
+            const image = review.image;
+            const rating = review.rating;
+            const feedback = review.feedback;
+            const dmId = review.dmId;
+            const feedbackDate = review.feedbackDate;
+            //console.log(name, image, feedback, rating, dmId);
+            const user = await userCollection.findOne({
+                _id: new ObjectId(id)
+            });
+            //console.log(user);
+            if (user) {
+                const insertReview = {
+                    $push: {
+                        reviews: {
+                            $each: [
+                                {
+                                    name: name,
+                                    image: image,
+                                    rating: rating,
+                                    feedback: feedback,
+                                    dmId: dmId,
+                                    feedbackDate: feedbackDate,
+                                }
+                            ]
+                        }
+                    }
+                }
+                const result = await userCollection.updateOne({ _id: new ObjectId(id) }, insertReview)
+                res.send(result)
+            }
+        })
 
         app.patch('/parcel/cancel/:id', async (req, res) => {
             const id = req.params.id;
@@ -280,11 +332,40 @@ async function run() {
             res.send(result);
         })
 
+        app.patch('/parcel/reviewed/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({ error: 'Invalid ObjectId' });
+            }
+
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    bookingStatus: 'reviewed'
+                }
+            };
+
+            try {
+                const result = await parcelCollection.updateOne(filter, updatedDoc);
+
+                if (result.modifiedCount > 0) {
+                    res.json({ success: true });
+                } else {
+                    res.status(404).json({ error: 'Document not found' });
+                }
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+
 
 
         //Make parcel cancel 
         // Make parcel cancel 
-        app.patch('/parcel/cancel/:id', async (req, res) => {
+        app.patch('/parcel/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const filter = { _id: new ObjectId(id) };
@@ -305,18 +386,80 @@ async function run() {
                 res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
         // Update parcel (for other updates, if needed)
-        app.patch('/parcel/update/:id', async (req, res) => {
-            try {
-                // Your logic for updating a parcel (if needed)
-            } catch (error) {
-                console.error('Error updating parcel:', error);
-                res.status(500).json({ error: 'Internal Server Error' });
+        /* app.patch('/parcel/update/:id', async (req, res) => {
+            const parcel = req.body;
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    senderName: parcel.senderName,
+                    senderEmail: parcel.senderEmail,
+                    senderNumber: parcel.senderNumber,
+                    parcelWeight: parcel.parcelWeight,
+                    parcelType: parcel.parcelType,
+                    receiverName: parcel.receiverName,
+                    receiverNumber: parcel.receiverNumber,
+                    receiverAddress: parcel.receiverAddress,
+                    addressLatitude: parcel.addressLatitude,
+                    addressLongitude: parcel.addressLongitude,
+                    deliveryDate: parcel.deliveryDate,
+                    parcelCost: parcel.parcelCost,
+                    bookingDate: parcel.bookingDate,
+                    bookingStatus: parcel.bookingStatus,
+                    approximateDeliveryDate: parcel.approximateDeliveryDate,
+                    deliveryMenId: parcel.deliveryMenId,
+                    deliveryMenEmail: parcel.deliveryMenEmail,
+                }
             }
+            const result = await parcelCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+
+        }); */
+        app.patch('/parcel/update/:id', async (req, res) => {
+            const parcel = req.body;
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+
+            // Construct $set object dynamically
+            const updatedDoc = { $set: {} };
+
+            // List of fields that can be updated
+            const allowedFields = [
+                'senderName',
+                'senderEmail',
+                'senderNumber',
+                'parcelWeight',
+                'parcelType',
+                'receiverName',
+                'receiverNumber',
+                'receiverAddress',
+                'addressLatitude',
+                'addressLongitude',
+                'deliveryDate',
+                'parcelCost',
+                'bookingDate',
+                'bookingStatus',
+                'approximateDeliveryDate',
+                'deliveryMenId',
+                'deliveryMenEmail',
+            ];
+
+            // Add fields to $set if they are present in the request body
+            allowedFields.forEach((field) => {
+                if (parcel[field] !== "") {
+                    updatedDoc.$set[field] = parcel[field];
+                }
+            });
+
+            const result = await parcelCollection.updateOne(filter, updatedDoc);
+
+            res.send(result);
         });
 
-        // Single Food read
-        app.get('/parcel/:parcelId', async (req, res) => {
+        // Single parcel read
+        app.get('/parcel/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await parcelCollection.findOne(query);
